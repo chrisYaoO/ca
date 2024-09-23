@@ -44,6 +44,11 @@ def get_all_container_info():
     return container_ids
 
 
+def get_container_tag_by_id(container_id):
+    name = DeviceMonitor.get_container_name_by_id(container_id)
+    return name[-3]
+
+
 class Server:
     DeviceServiceImpl.flush_database()
     host = HOST
@@ -90,21 +95,18 @@ class Server:
                 logging.info(f'sending task to {client_id}')
                 cls.send_compute_task(addr)
                 # 异步写缓存，并从此开始每5秒获取一次信息作为history
-                cache_thread=threading.Thread(target=cls.update_container_info_to_cache, args=(client_id,))
+                cache_thread = threading.Thread(target=cls.update_container_info_to_cache, args=(client_id,))
                 cache_thread.start()
-                # device_infos = DeviceMonitor.get_container_info_id(client_id)
-                # print(device_infos)
-                # device_info = next(iter(device_infos.values()))
-                # print(device_info)
-                # tag = device_info['Container'][-3]
-                # # 将信息写入redis中
-                # DeviceServiceImpl.write_device_to_cache(device_info)
-                # # print('write completed')
 
             if data.startswith('result'):
                 logging.info(data)
+                data=data.split(':')
+                result=data[1]
+                client_id = data[2].rstrip()
+                time_taken=data[-1]
                 cls.num_task_finished += 1
                 print(cls.num_task_finished)
+                DeviceServiceImpl.write_result_to_cache(client_id,result+':'+time_taken)
 
     @classmethod
     def update_container_info_to_cache(cls, client_id):

@@ -38,6 +38,7 @@ class Client:
     addr = (HOST, PORT)
     compute_flag = True
     assigned_task = None
+    client_id = get_container_id() if get_container_id() else 1
 
     # num_cpu = param[tag]
     LOG_FORMAT = "%(asctime)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s"
@@ -57,10 +58,7 @@ class Client:
     @classmethod
     def receive_task(cls):
         try:
-            id = get_container_id()
-            if not id:
-                id = '1'
-            hello_msg = 'hello from:' + id
+            hello_msg = 'hello from:' + cls.client_id
             cls.sock.sendto(hello_msg.encode('utf-8'), cls.addr)
             logging.info("hello sent success")
         except (OSError, cls.sock.error) as e:
@@ -90,7 +88,8 @@ class Client:
             result = ActuatorImpl.run_actuator('compute_task_r')
             end_time = time.perf_counter()
             time_taken = round(end_time - start_time, 2)
-            result_msg = 'result:' + str(result) + ':' + tag + ':' + str(cls.assigned_task[tag][0]) + ':' + str(
+            result_msg = 'result:' + str(result) + ':' + cls.client_id + ':' + str(
+                cls.assigned_task[tag][0]) + ':' + str(
                 time_taken)
             logging.info(result_msg)
 
@@ -109,5 +108,6 @@ class Client:
 
 if __name__ == '__main__':
     Client.client()
-
+    # result='result:123213123:sxdah1:6:2.33'
+    # print(result.split(':'))
     # logging.info(generate_truncated_normal(3, 1, 2, 4))
