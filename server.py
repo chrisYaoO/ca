@@ -45,6 +45,7 @@ def get_all_container_info():
 
 
 class Server:
+    DeviceServiceImpl.flush_database()
     host = HOST
     port = PORT
     # 设定任务数量和设备配置，根据算法分配任务给不同容器
@@ -81,18 +82,24 @@ class Server:
             data = data.decode('utf-8')
             print(data)
             if data.startswith('hello'):
-                send_thread = threading.Thread(target=cls.send_compute_task, args=(addr,))
-                send_thread.start()
-                cls.num_device += 1
+                # send_thread = threading.Thread(target=cls.send_compute_task, args=(addr,))
+                # send_thread.start()
                 logging.info(data)
                 client_id = data.split(':')[-1].rstrip()
-                device_infos = DeviceMonitor.get_container_info_id(client_id)
-                device_info=next(iter(device_infos.values()))
-                print(device_info)
-                tag=device_info['Container'][-3]
-                # 将信息写入redis中
-                DeviceServiceImpl.write_device_to_cache(device_info)
-                print('write completed')
+                cls.num_device += 1
+                logging.info(f'sending task to {client_id}')
+                cls.send_compute_task(addr)
+                # 异步写缓存，并从此开始每5秒获取一次信息作为history
+                cache_thread=threading.Thread(target=cls.update_container_info_to_cache, args=(client_id,))
+                cache_thread.start()
+                # device_infos = DeviceMonitor.get_container_info_id(client_id)
+                # print(device_infos)
+                # device_info = next(iter(device_infos.values()))
+                # print(device_info)
+                # tag = device_info['Container'][-3]
+                # # 将信息写入redis中
+                # DeviceServiceImpl.write_device_to_cache(device_info)
+                # # print('write completed')
 
             if data.startswith('result'):
                 logging.info(data)
@@ -100,11 +107,23 @@ class Server:
                 print(cls.num_task_finished)
 
     @classmethod
+    def update_container_info_to_cache(cls, client_id):
+        while cls.num_task_finished < cls.num_task:
+            try:
+                device_infos = DeviceMonitor.get_container_info_id(client_id)
+                # print(device_infos)
+                device_info = next(iter(device_infos.values()))
+                # print(device_info)
+                DeviceServiceImpl.write_device_to_cache(device_info)
+            except Exception as e:
+                print("Error updating container info and cache:", e)
+            time.sleep(5)
+
+    @classmethod
     def send_compute_task(cls, addr):
         json_data = json.dumps(cls.assigned_task)
         try:
             cls.sock.sendto(json_data.encode('utf-8'), addr)
-            # print("end sent success")
         except (OSError, cls.sock.error) as e:
             print("assignment sent error", e)
             return e.errno

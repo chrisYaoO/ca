@@ -98,18 +98,16 @@ class DeviceMonitor:
 
     @classmethod
     def parse_container_info(cls, command):
-        print('parsing...')
+        # print('parsing...')
         container_info = {}
-        print(command)
-        output = subprocess.check_output(command, shell=True).decode()
-        print(output)
+        output = subprocess.check_output(command).decode()
         lines = output.strip().split('\n')
         for line in lines:
             # print(line)
             container_name, container_id, cpu_usage, mem_info = line.strip().split(':')
             command_1 = ["docker", "inspect", "--format", "{{.HostConfig.NanoCpus}}", container_id]
-            cpu_limit = subprocess.check_output(command_1, shell=True).decode()
-            print(cpu_limit)
+            cpu_limit = subprocess.check_output(command_1).decode()
+            # print(cpu_limit)
             cpu_limit = float(cpu_limit) / 1e9
             cpu_perc = float(cpu_usage.strip('%')) / cpu_limit
             pattern = r"(\d+\.\d+)(MiB|GiB)\s/\s(\d+)(MiB|GiB)"
@@ -180,8 +178,11 @@ class DeviceMonitor:
 
 
 if __name__ == '__main__':
-    container_id='8e4f02a41c33'
+    container_id='f0d6b3afa22d'
     command = ["docker", "stats", container_id, "--no-stream", "--format",
                    "{{.Name}}:{{.ID}}:{{.CPUPerc}}:{{.MemUsage}}"]
+    output = subprocess.check_output(command).decode()
+    print(output)
     info=DeviceMonitor.parse_container_info(command)
+
     print(info)
