@@ -37,7 +37,7 @@ def generate_truncated_normal(mean, std_dev, lower, upper):
 # 获取容器id
 
 
-def get_all_container_info():
+def get_all_container_ids():
     client = docker.from_env()  # 创建 Docker 客户端
     containers = client.containers.list(all=True)  # 列出所有容器，包括停止的容器
     container_ids = [container.id for container in containers]
@@ -73,6 +73,7 @@ class Server:
         logging.info('server is listening on port {}'.format(cls.port))
         data_process_thread = threading.Thread(target=cls.msg_process)
         data_process_thread.start()
+
         if ca:
             cpu_thread = threading.Thread(target=cls.cpu_change_ca)
             cpu_thread.start()
@@ -87,39 +88,49 @@ class Server:
             data = data.decode('utf-8')
             print(data)
             if data.startswith('hello'):
-                # send_thread = threading.Thread(target=cls.send_compute_task, args=(addr,))
-                # send_thread.start()
                 logging.info(data)
                 client_id = data.split(':')[-1].rstrip()
                 cls.num_device += 1
                 logging.info(f'sending task to {client_id}')
                 cls.send_compute_task(addr)
-                # 异步写缓存，并从此开始每5秒获取一次信息作为history
-                cache_thread = threading.Thread(target=cls.update_container_info_to_cache, args=(client_id,))
-                cache_thread.start()
 
-            if data.startswith('result'):
+            elif data.startswith('result'):
                 logging.info(data)
-                data=data.split(':')
-                result=data[1]
+                data = data.split(':')
+                result = data[1]
                 client_id = data[2].rstrip()
-                time_taken=data[-1]
+                time_taken = data[-1]
                 cls.num_task_finished += 1
                 print(cls.num_task_finished)
-                DeviceServiceImpl.write_result_to_cache(client_id,result+':'+time_taken)
+                DeviceServiceImpl.write_result_to_cache(client_id, result + ':' + time_taken)
+                logging.info(f'result saved')
+
+            elif data.startswith('delay'):
+                # logging.info(data)
+                data = data.split(':')
+                client_id = data[-1].rstrip()
+                monitor_thread=threading.Thread(target=cls.update_container_info_to_cache,args=(client_id,))
+                monitor_thread.start()
+    @classmethod
+    def container_monitor(cls):
+        while True:
+            if cls.num_device > 0 and cls.num_task_finished < cls.num_task:
+                client_ids = get_all_container_ids()
+                for client_id in client_ids:
+                    cls.update_container_info_to_cache(client_id)
+            time.sleep(2)
 
     @classmethod
     def update_container_info_to_cache(cls, client_id):
-        while cls.num_task_finished < cls.num_task:
-            try:
-                device_infos = DeviceMonitor.get_container_info_id(client_id)
-                # print(device_infos)
-                device_info = next(iter(device_infos.values()))
-                # print(device_info)
-                DeviceServiceImpl.write_device_to_cache(device_info)
-            except Exception as e:
-                print("Error updating container info and cache:", e)
-            time.sleep(5)
+        try:
+            device_infos = DeviceMonitor.get_container_info_id(client_id)
+            # print(device_infos)
+            device_info = next(iter(device_infos.values()))
+            # print(device_info)
+            DeviceServiceImpl.write_device_to_cache(device_info)
+        except Exception as e:
+            print("Error updating container info and cache:", e)
+        time.sleep(5)
 
     @classmethod
     def send_compute_task(cls, addr):

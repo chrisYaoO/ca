@@ -38,7 +38,7 @@ class Client:
     addr = (HOST, PORT)
     compute_flag = True
     assigned_task = None
-    client_id = get_container_id() if get_container_id() else 1
+    client_id = get_container_id() if get_container_id() else '1'
 
     # num_cpu = param[tag]
     LOG_FORMAT = "%(asctime)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s"
@@ -49,11 +49,23 @@ class Client:
         # 接受任务
         cls.receive_task()
         # 计算任务，回传结果
-        compute_thread = threading.Thread(target=cls.compute_task)
+        monitor_thread = threading.Thread(target=cls.monitor)
+        monitor_thread.start()
+        compute_thread=threading.Thread(target=cls.compute_task)
         compute_thread.start()
-        #
-        # network_thread = threading.Thread(target=cls.cpu_change)
-        # network_thread.start()
+
+
+    @classmethod
+    def monitor(cls):
+        while True:
+            try:
+                delay_msg='delay:'+cls.client_id
+                cls.sock.sendto(delay_msg.encode('utf-8'), cls.addr)
+                # logging.info("delay sent success")
+            except (OSError, cls.sock.error) as e:
+                logging.info("delay sent error", e)
+                return e.errno
+            time.sleep(2)
 
     @classmethod
     def receive_task(cls):
@@ -88,11 +100,10 @@ class Client:
             result = ActuatorImpl.run_actuator('compute_task_r')
             end_time = time.perf_counter()
             time_taken = round(end_time - start_time, 2)
-            result_msg = 'result:' + str(result) + ':' + cls.client_id + ':' + str(
+            result_msg = 'result :' + str(result) + ':' + cls.client_id + ':' + str(
                 cls.assigned_task[tag][0]) + ':' + str(
                 time_taken)
             logging.info(result_msg)
-
             try:
                 cls.sock.sendto(result_msg.encode('utf-8'), cls.addr)
                 logging.info("result sent success")
@@ -111,3 +122,6 @@ if __name__ == '__main__':
     # result='result:123213123:sxdah1:6:2.33'
     # print(result.split(':'))
     # logging.info(generate_truncated_normal(3, 1, 2, 4))
+    # data='result:59.67:a12a4fe19a43'
+    # if data.startswith('result'):
+    #     print(data)

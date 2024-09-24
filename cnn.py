@@ -50,8 +50,8 @@ class cnn(nn.Module):
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-        num_epochs = 5  # 选择合理的epoch数量，使训练时间在1分钟左右
-        start_time = time.time()
+        num_epochs = 1  # 选择合理的epoch数量，使训练时间在1分钟左右
+        # start_time = time.time()
         print('start training')
         for epoch in range(num_epochs):
             running_loss = 0.0
@@ -70,10 +70,10 @@ class cnn(nn.Module):
                         f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(trainloader)}], Loss: {running_loss / 100:.4f}')
                     running_loss = 0.0
 
-            elapsed_time = time.time() - start_time
-            if elapsed_time > self.scale:  # 如果训练时间超过1分钟，提前停止
-                print("Training stopped early due to time limit.")
-                break
+            # elapsed_time = time.time() - start_time
+            # if elapsed_time > self.scale:  # 如果训练时间超过1分钟，提前停止
+            #     print("Training stopped early due to time limit.")
+            #     break
 
         print('Finished Training')
 
@@ -91,6 +91,6 @@ class cnn(nn.Module):
 
         accuracy = 100 * correct / total
 
-        print(f'Accuracy of the network on the 10000 test images: {accuracy:.2f}%')
+        print(f'Accuracy: {accuracy:.2f}%')
 
         return accuracy

@@ -30,7 +30,7 @@ class DeviceServiceImpl(DeviceService):
     # result_msg = 'result:' + str(result) + ':' + id + ':' + str(cls.assigned_task[tag][0]) + ':' + str(time_taken)
     def write_result_to_cache(cls, client_id, result_info):
         result_key = 'RESULT_' + client_id
-        REDIS_TOOLS.lset_time(result_key, 86400, json.dumps(result_info))
+        REDIS_TOOLS.lset_time(result_key,json.dumps(result_info),86400)
 
     @classmethod
     #
