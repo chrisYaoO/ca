@@ -50,7 +50,8 @@ def get_container_tag_by_id(container_id):
 
 
 class Server:
-    DeviceServiceImpl.flush_database()
+    # DeviceServiceImpl.flush_database()
+
     host = HOST
     port = PORT
     # 设定任务数量和设备配置，根据算法分配任务给不同容器
@@ -87,7 +88,15 @@ class Server:
             data, addr = cls.sock.recvfrom(1024)
             data = data.decode('utf-8')
             print(data)
-            if data.startswith('hello'):
+
+            if data.startswith('delay'):
+                # logging.info(data)
+                data = data.split(':')
+                client_id = data[-1].rstrip()
+                monitor_thread = threading.Thread(target=cls.update_container_info_to_cache, args=(client_id,))
+                monitor_thread.start()
+
+            elif data.startswith('hello'):
                 logging.info(data)
                 client_id = data.split(':')[-1].rstrip()
                 cls.num_device += 1
@@ -102,15 +111,10 @@ class Server:
                 time_taken = data[-1]
                 cls.num_task_finished += 1
                 print(cls.num_task_finished)
-                DeviceServiceImpl.write_result_to_cache(client_id, result + ':' + time_taken)
-                logging.info(f'result saved')
+                result_info = result + ':' + time_taken
+                DeviceServiceImpl.write_result_to_cache(client_id, result_info)
+                logging.info(f'result saved: {result_info}', )
 
-            elif data.startswith('delay'):
-                # logging.info(data)
-                data = data.split(':')
-                client_id = data[-1].rstrip()
-                monitor_thread=threading.Thread(target=cls.update_container_info_to_cache,args=(client_id,))
-                monitor_thread.start()
     @classmethod
     def container_monitor(cls):
         while True:
@@ -197,6 +201,41 @@ class Server:
                 time.sleep(3)
                 DeviceServiceImpl.write_device_to_cache(device_infos)
 
+    @classmethod
+    def avg_delay(cls):
+        result_list = {}
+        client_ids = DeviceServiceImpl.return_device_list()
+        avg_delay = {}
+        for client_id in client_ids:
+            time_taken = []
+            accuracy = []
+            result_list_id = DeviceServiceImpl.query_result_by_id(device_id=client_id)
+            for result in result_list_id:
+                result = result.split(':')
+                time_taken.append(float(result[-1]))
+                # accuracy.append(result[0])
+            result_list[client_id] = time_taken
+            avg_delay[client_id] = sum(time_taken) / len(time_taken)
+        # 平均任务延迟
+        print(result_list)
+        logging.info(avg_delay)
+
+    @classmethod
+    def utilization_efficiency(cls):
+        client_ids = DeviceServiceImpl.return_device_list()
+        utilization_efficiency = {}
+        for client_id in client_ids:
+            cpu_total = 0
+            cpu_used = 0
+            device_history = DeviceServiceImpl.query_device_history_by_id(client_id, 0)
+            for history in device_history:
+                # print(json.loads(history))
+                history = json.loads(history)
+                cpu_total += history['Cpu_limit']
+                cpu_used += history['Cpu_limit'] * history['Cpu_perc'] / 100
+            utilization_efficiency[client_id] = cpu_used / cpu_total
+            logging.info(f'{client_id}: {round(cpu_used / cpu_total * 100, 2)}%')
+
 
 if __name__ == '__main__':
     # config中修改ip地址
@@ -204,4 +243,5 @@ if __name__ == '__main__':
     # docker build -t ca .     构建镜像
     # 运行server
     # docker-compose up 启动容器，启动配置在docker-compsoe.yml中
-    Server.server(ca=True)
+    # Server.server(ca=True)
+    Server.utilization_efficiency()

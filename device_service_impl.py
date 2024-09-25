@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+# from idlelib import history
 from typing import Dict, Set, TypeVar
 
 from config.common_redis_key_constant import ComRedisKeyConstant
@@ -23,14 +24,14 @@ class DeviceServiceImpl(DeviceService):
         device_key = ComRedisKeyConstant.DEVICE_ONLINE_PREFIX + device_info['device_no']
         REDIS_TOOLS.set_key_value_with_ttl(device_key, json.dumps(device_info), 86400)
         # device history
-        device_history = "Device_history" + device_info['device_no']
+        device_history = "Device_history_" + device_info['device_no']
         REDIS_TOOLS.lset_time(device_history, json.dumps(device_info), 86400)
 
     @classmethod
     # result_msg = 'result:' + str(result) + ':' + id + ':' + str(cls.assigned_task[tag][0]) + ':' + str(time_taken)
     def write_result_to_cache(cls, client_id, result_info):
         result_key = 'RESULT_' + client_id
-        REDIS_TOOLS.lset_time(result_key,json.dumps(result_info),86400)
+        REDIS_TOOLS.lset_time(result_key, result_info, 86400)
 
     @classmethod
     #
@@ -181,7 +182,9 @@ class DeviceServiceImpl(DeviceService):
     @classmethod
     def return_device_list(cls):
         device_set_key = ComRedisKeyConstant.DEVICE_ONLINE_SET
-        return REDIS_TOOLS.sget(device_set_key)
+        device_set = REDIS_TOOLS.r.smembers(device_set_key)
+        device_list = [item.decode('utf-8') for item in device_set]
+        return device_list
 
     @classmethod
     def flush_database(cls):
@@ -191,14 +194,31 @@ class DeviceServiceImpl(DeviceService):
 
     @classmethod
     def query_device_history_by_id(cls, device_id: str, count: int):
-        device_history_key = "Device_history" + device_id
+        device_history_key = "Device_history_" + device_id
         # 获取列表的长度
         list_length = REDIS_TOOLS.r.llen(device_history_key)
+        # count为0时获取全部
+        if count == 0:
+            latest_values = REDIS_TOOLS.r.lrange(device_history_key, 0, -1)
+            history = [item.decode('utf-8') for item in latest_values]
+            return history
 
-        # 获取最新的五个值
-        start_index = max(0, list_length - count)  # 起始索引
-        end_index = list_length - 1  # 结束索引
+        else:
+            # 获取最新的五个值
+            start_index = max(0, list_length - count)  # 起始索引
+            end_index = list_length - 1  # 结束索引
+            # 使用 LRANGE 命令获取列表的最新五个值
+            latest_values = REDIS_TOOLS.r.lrange(device_history_key, start_index, end_index)
+            return latest_values
 
-        # 使用 LRANGE 命令获取列表的最新五个值
-        latest_values = REDIS_TOOLS.r.lrange(device_history_key, start_index, end_index)
-        return latest_values
+    @classmethod
+    def query_result_by_id(cls, device_id: str):
+        result_key = "RESULT_" + device_id
+        latest_values = REDIS_TOOLS.r.lrange(result_key, 0, -1)
+        result = [item.decode('utf-8') for item in latest_values]
+        return result
+
+
+if __name__ == '__main__':
+    client_id = DeviceServiceImpl.return_device_list()[0]
+    device_info = DeviceServiceImpl.query_device_history_by_id(client_id, 0)

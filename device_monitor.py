@@ -4,6 +4,7 @@ import re
 # import psutil
 import datetime
 import socket
+import time
 import uuid
 import subprocess
 # import yaml
@@ -106,11 +107,9 @@ class DeviceMonitor:
             # print(line)
             container_name, container_id, cpu_usage, mem_info = line.strip().split(':')
             command_1 = ["docker", "inspect", "--format", "{{.HostConfig.NanoCpus}}", container_id]
-            cpu_limit = subprocess.check_output(command_1).decode()
-            # print(cpu_limit)
-            cpu_limit = float(cpu_limit) / 1e9
+            cpu_limit = float(subprocess.check_output(command_1).decode()) / 1e9
             cpu_perc = float(cpu_usage.strip('%')) / cpu_limit
-            pattern = r"(\d+\.\d+)(MiB|GiB)\s/\s(\d+)(MiB|GiB)"
+            pattern = r"(\d+\.\d+)(B|KB|MiB|GiB)\s/\s(\d+)(B|KB|MiB|GiB)"
             match = re.match(pattern, mem_info)
 
             used_memory = float(match.group(1))  # 已使用内存量
@@ -118,11 +117,14 @@ class DeviceMonitor:
             total_memory = float(match.group(3))  # 总内存量
             total_unit = match.group(4)  # 单位
 
-            unit_conversion = {"MiB": 1, "GiB": 1024}
+            unit_conversion = {"B": 1 / 1048576, "KB": 1 / 1024, "MiB": 1, "GiB": 1024}
             used_memory *= unit_conversion.get(used_unit, 1)
             total_memory *= unit_conversion.get(total_unit, 1)
 
             mem_perc = round((used_memory / total_memory) * 100, 2)
+
+            current_time = time.time()
+            time_str = time.strftime("%H:%M:%S", time.localtime(current_time)) + f".{int(current_time % 1 * 1000):03d}"
 
             device_info = {
                 "Container": container_name,
@@ -130,11 +132,11 @@ class DeviceMonitor:
                 "Cpu_perc": cpu_perc,
                 "Cpu_limit": cpu_limit,
                 "Mem_perc": mem_perc,
-                "Mem_limit": total_memory
+                "Mem_limit": total_memory,
+                "Time_stamp": time_str
             }
-            tag = container_name[-3]
-            container_info[tag] = device_info
-
+            # tag =
+            container_info[container_name[-3]] = device_info
 
         return container_info
 
@@ -178,11 +180,11 @@ class DeviceMonitor:
 
 
 if __name__ == '__main__':
-    container_id='f0d6b3afa22d'
+    container_id = 'f0d6b3afa22d'
     command = ["docker", "stats", container_id, "--no-stream", "--format",
-                   "{{.Name}}:{{.ID}}:{{.CPUPerc}}:{{.MemUsage}}"]
+               "{{.Name}}:{{.ID}}:{{.CPUPerc}}:{{.MemUsage}}"]
     output = subprocess.check_output(command).decode()
     print(output)
-    info=DeviceMonitor.parse_container_info(command)
+    info = DeviceMonitor.parse_container_info(command)
 
     print(info)

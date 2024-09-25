@@ -65,7 +65,7 @@ class Client:
             except (OSError, cls.sock.error) as e:
                 logging.info("delay sent error", e)
                 return e.errno
-            time.sleep(2)
+            time.sleep(1)
 
     @classmethod
     def receive_task(cls):
