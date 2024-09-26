@@ -8,10 +8,11 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import time
+from tqdm import tqdm
 
 
 class cnn(nn.Module):
-    def __init__(self, scale=10):
+    def __init__(self, scale=50):
         self.scale = scale
         super(cnn, self).__init__()
         self.conv1 = nn.Conv2d(3, 32, 3, padding=1)
@@ -42,7 +43,7 @@ class cnn(nn.Module):
         trainloader = DataLoader(trainset, batch_size=64, shuffle=True, num_workers=2)
 
         testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-        testloader = DataLoader(testset, batch_size=64, shuffle=False, num_workers=2)
+        testloader = DataLoader(testset, batch_size=256, shuffle=False, num_workers=2)
 
         classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -50,32 +51,35 @@ class cnn(nn.Module):
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-        num_epochs = 1  # 选择合理的epoch数量，使训练时间在1分钟左右
-        # start_time = time.time()
+        num_epochs = 10  # 选择合理的epoch数量，使训练时间在1分钟左右
+        start_time = time.perf_counter()
         print('start training')
         for epoch in range(num_epochs):
             running_loss = 0.0
-            for i, data in enumerate(trainloader, 0):
-                inputs, labels = data
-                optimizer.zero_grad()
+            with tqdm(enumerate(trainloader, 0), total=len(trainloader),
+                      desc=f'Epoch {epoch + 1}/{num_epochs}') as pbar:
+                for i, data in pbar:
+                    inputs, labels = data
+                    optimizer.zero_grad()
 
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
+                    loss.backward()
+                    optimizer.step()
 
-                running_loss += loss.item()
-                if i % 100 == 99:  # 每100个批次打印一次损失
-                    print(
-                        f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(trainloader)}], Loss: {running_loss / 100:.4f}')
-                    running_loss = 0.0
+                    running_loss += loss.item()
+                    if i % 100 == 99:  # 每100个批次打印一次损失
+                        print(
+                            f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(trainloader)}], Loss: {running_loss / 100:.4f}')
+                        running_loss = 0.0
 
-            # elapsed_time = time.time() - start_time
-            # if elapsed_time > self.scale:  # 如果训练时间超过1分钟，提前停止
-            #     print("Training stopped early due to time limit.")
-            #     break
+            elapsed_time = time.time() - start_time
+            if elapsed_time > self.scale:  # 如果训练时间超过1分钟，提前停止
+                print("Training stopped early due to time limit.")
+                break
 
         print('Finished Training')
+        # print(time.perf_counter() - start_time)
 
         correct = 0
         total = 0
@@ -90,7 +94,5 @@ class cnn(nn.Module):
                 correct += (predicted == labels).sum().item()
 
         accuracy = 100 * correct / total
-
         print(f'Accuracy: {accuracy:.2f}%')
-
         return accuracy
