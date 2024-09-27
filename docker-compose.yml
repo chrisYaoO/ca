@@ -13,38 +13,35 @@ services:
     stdin_open: true
     tty: true
 
+  client-2:
+    image: ca
+    shm_size: 0g
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 1G
+    stdin_open: true
+    tty: true
 
-
-#  client-2:
-#    image: offload
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: '0.6'
-#          memory: 100m
-#    shm_size: 0g
-#    stdin_open: true
-#    tty: true
-#
 #  client-3:
-#    image: offload
+#    image: ca
+#    shm_size: 0g
 #    deploy:
 #      resources:
 #        limits:
-#          cpus: '0.7'
-#          memory: 100m
-#    shm_size: 0g
+#          cpus: '2'
+#          memory: 1G
 #    stdin_open: true
 #    tty: true
 #
 #  client-4:
-#    image: offload
+#    image: ca
+#    shm_size: 0g
 #    deploy:
 #      resources:
 #        limits:
-#          cpus: '0.8'
-#          memory: 100m
-#    shm_size: 0g
+#          cpus: '2'
+#          memory: 1G
 #    stdin_open: true
 #    tty: true
-

@@ -7,7 +7,7 @@ COPY . /app/
 RUN apt update
 RUN apt install libgl1 -y
 RUN pip config set global.index-url https://mirrors.cloud.tencent.com/pypi/simple
-RUN #pip cache purge
+RUN pip cache purge
 RUN pip install -r /app/requirements.txt
 
 #RUN apt install sudo -y

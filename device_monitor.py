@@ -109,13 +109,14 @@ class DeviceMonitor:
             command_1 = ["docker", "inspect", "--format", "{{.HostConfig.NanoCpus}}", container_id]
             cpu_limit = float(subprocess.check_output(command_1).decode()) / 1e9
             cpu_perc = float(cpu_usage.strip('%')) / cpu_limit
-            pattern = r"(\d+\.\d+)(B|KB|MiB|GiB)\s/\s(\d+)(B|KB|MiB|GiB)"
+            pattern = r"(\d+(\.\d+)?)(B|KB|MiB|GiB)\s*/\s*(\d+(\.\d+)?)(B|KB|MiB|GiB)"
+            # print(mem_info)
             match = re.match(pattern, mem_info)
 
             used_memory = float(match.group(1))  # 已使用内存量
-            used_unit = match.group(2)  # 单位
-            total_memory = float(match.group(3))  # 总内存量
-            total_unit = match.group(4)  # 单位
+            used_unit = match.group(3)  # 单位
+            total_memory = float(match.group(4))  # 总内存量
+            total_unit = match.group(6)  # 单位
 
             unit_conversion = {"B": 1 / 1048576, "KB": 1 / 1024, "MiB": 1, "GiB": 1024}
             used_memory *= unit_conversion.get(used_unit, 1)

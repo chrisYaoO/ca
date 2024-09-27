@@ -50,16 +50,17 @@ def get_container_tag_by_id(container_id):
 
 
 class Server:
-    # DeviceServiceImpl.flush_database()
+    DeviceServiceImpl.flush_database()
 
     host = HOST
     port = PORT
     # 设定任务数量和设备配置，根据算法分配任务给不同容器
-    num_task = 10
+    num_task = NUM_TASK
     num_task_finished = 0
     num_device = 0
-    device_config = {'1': {'num_cpu': 1 / 3}, '2': {'num_cpu': 1 / 2}, '3': {'num_cpu': 1 / 4}, '4': {'num_cpu': 1 / 5}}
-    assigned_task = Static.base_assign(10, device_config)
+    cpu_new = {}
+    assigned_task = Static.base_assign(num_task, device_config)
+    print(assigned_task)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # 创建socket对象
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 128000000)
@@ -74,20 +75,25 @@ class Server:
         logging.info('server is listening on port {}'.format(cls.port))
         data_process_thread = threading.Thread(target=cls.msg_process)
         data_process_thread.start()
-
+        while True:
+            if cls.num_device != 0:
+                break
         if ca:
             cpu_thread = threading.Thread(target=cls.cpu_change_ca)
             cpu_thread.start()
         else:
             cpu_thread = threading.Thread(target=cls.cpu_change)
             cpu_thread.start()
+        data_process_thread.join()
+        print('End')
+        return 0
 
     @classmethod
     def msg_process(cls):
         while True:
             data, addr = cls.sock.recvfrom(1024)
             data = data.decode('utf-8')
-            print(data)
+            # print(data)
 
             if data.startswith('delay'):
                 # logging.info(data)
@@ -99,9 +105,14 @@ class Server:
             elif data.startswith('hello'):
                 logging.info(data)
                 client_id = data.split(':')[-1].rstrip()
+                tag = get_container_tag_by_id(client_id)
+                print(tag)
                 cls.num_device += 1
-                logging.info(f'sending task to {client_id}')
-                cls.send_compute_task(addr)
+                logging.info(f'sending task to {client_id}, contianer {tag}')
+                cls.send_compute_task(addr, tag)
+                if cls.num_device == len(device_config):
+                    monitor_thread = threading.Thread(target=cls.container_monitor())
+                    monitor_thread.start()
 
             elif data.startswith('result'):
                 logging.info(data)
@@ -114,15 +125,19 @@ class Server:
                 result_info = result + ':' + time_taken
                 DeviceServiceImpl.write_result_to_cache(client_id, result_info)
                 logging.info(f'result saved: {result_info}', )
+                if cls.num_task_finished == cls.num_task:
+                    cls.avg_delay()
+                    cls.utilization_efficiency()
+                    return 0
 
     @classmethod
     def container_monitor(cls):
         while True:
             if cls.num_device > 0 and cls.num_task_finished < cls.num_task:
-                client_ids = get_all_container_ids()
+                client_ids = DeviceServiceImpl.return_device_list()
                 for client_id in client_ids:
                     cls.update_container_info_to_cache(client_id)
-            time.sleep(2)
+            time.sleep(1)
 
     @classmethod
     def update_container_info_to_cache(cls, client_id):
@@ -130,15 +145,17 @@ class Server:
             device_infos = DeviceMonitor.get_container_info_id(client_id)
             # print(device_infos)
             device_info = next(iter(device_infos.values()))
+            tag=next(iter(device_infos.keys()))
+            device_info['Cpu_new'] = cls.cpu_new[tag]
             # print(device_info)
             DeviceServiceImpl.write_device_to_cache(device_info)
         except Exception as e:
             print("Error updating container info and cache:", e)
-        time.sleep(5)
+        # time.sleep(5)
 
     @classmethod
-    def send_compute_task(cls, addr):
-        json_data = json.dumps(cls.assigned_task)
+    def send_compute_task(cls, addr, tag):
+        json_data = json.dumps(cls.assigned_task[tag])
         try:
             cls.sock.sendto(json_data.encode('utf-8'), addr)
         except (OSError, cls.sock.error) as e:
@@ -176,14 +193,15 @@ class Server:
         device_infos = DeviceMonitor.get_container_info_all()
         while cls.num_task_finished < cls.num_task:
             for tag, device_info in device_infos.items():
+                init_cpu = device_config[tag]['num_cpu']
                 num_cpu = device_info['Cpu_limit']
-                cpu_new = generate_truncated_normal(num_cpu, 1, num_cpu - 1, num_cpu + 1)
-                if cpu_new < num_cpu:
-                    logging.info(f'update device {tag}')
-                    cls.update_container_config(device_info['device_no'], cpu_new)
-                    device_infos[tag]['Cpu_limit'] = cpu_new
+                cls.cpu_new[tag] = generate_truncated_normal(init_cpu, 1, init_cpu - 1, init_cpu + 1)
+                if cls.cpu_new[tag] < num_cpu:
+                    logging.info(f'update device {tag} from {num_cpu} to {cls.cpu_new[tag]}')
+                    cls.update_container_config(device_info['device_no'], cls.cpu_new[tag])
+                    # device_info['Cpu_limit'] = cls.cpu_new
+                    # DeviceServiceImpl.write_device_to_cache(device_info)
             time.sleep(3)
-            DeviceServiceImpl.write_device_to_cache(device_infos)
 
     # 动态调度算法，能够扩张和伸缩cpu
     @classmethod
@@ -224,17 +242,24 @@ class Server:
     def utilization_efficiency(cls):
         client_ids = DeviceServiceImpl.return_device_list()
         utilization_efficiency = {}
+        sum_cpu = 0
+        sum_cpu_used = 0
         for client_id in client_ids:
             cpu_total = 0
             cpu_used = 0
+
             device_history = DeviceServiceImpl.query_device_history_by_id(client_id, 0)
             for history in device_history:
                 # print(json.loads(history))
                 history = json.loads(history)
-                cpu_total += history['Cpu_limit']
+                # cpu_total += history['Cpu_limit']
+                cpu_total +=history['Cpu_new']
                 cpu_used += history['Cpu_limit'] * history['Cpu_perc'] / 100
+            sum_cpu_used += cpu_used
+            sum_cpu += cpu_total
             utilization_efficiency[client_id] = cpu_used / cpu_total
             logging.info(f'{client_id}: {round(cpu_used / cpu_total * 100, 2)}%')
+        logging.info(f'total efficiency: {round(sum_cpu_used / sum_cpu * 100, 2)}%')
 
 
 if __name__ == '__main__':
@@ -243,5 +268,5 @@ if __name__ == '__main__':
     # docker build -t ca .     构建镜像
     # 运行server
     # docker-compose up 启动容器，启动配置在docker-compsoe.yml中
-    Server.server(ca=True)
+    Server.server(ca=False)
     # Server.utilization_efficiency()

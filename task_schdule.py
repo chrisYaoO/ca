@@ -1,6 +1,6 @@
 import random
 import numpy as np
-
+from config.config import *
 
 class Static:
 
@@ -38,8 +38,9 @@ class Static:
 
 
 if __name__ == '__main__':
-    device_config = {'1': {'num_cpu': 1 / 3}, '2': {'num_cpu': 1 / 2}, '3': {'num_cpu': 1 / 4},
-                     '4': {'num_cpu': 1 / 5}}
+    # device_config = {'1': {'num_cpu': 1 / 3}, '2': {'num_cpu': 1 / 2}, '3': {'num_cpu': 1 / 4},
+    #                  '4': {'num_cpu': 1 / 5}}
+
     print(Static.base_assign(10, device_config))
 
 # print(Static.random_assign(5))

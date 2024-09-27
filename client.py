@@ -8,8 +8,6 @@ from actuator_impl import ActuatorImpl
 import json
 import logging
 
-tag = '1'
-
 
 # 生成高斯分布的随机数，对应于cpu限制
 def generate_truncated_normal(mean, std_dev, lower, upper):
@@ -39,8 +37,6 @@ class Client:
     compute_flag = True
     assigned_task = None
     client_id = get_container_id() if get_container_id() else '1'
-
-    # num_cpu = param[tag]
     LOG_FORMAT = "%(asctime)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s"
     logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
@@ -50,22 +46,20 @@ class Client:
         cls.receive_task()
         # 计算任务，回传结果
         monitor_thread = threading.Thread(target=cls.monitor)
-        monitor_thread.start()
-        compute_thread=threading.Thread(target=cls.compute_task)
+        # monitor_thread.start()
+        compute_thread = threading.Thread(target=cls.compute_task)
         compute_thread.start()
-
 
     @classmethod
     def monitor(cls):
-        while True:
-            try:
-                delay_msg='delay:'+cls.client_id
-                cls.sock.sendto(delay_msg.encode('utf-8'), cls.addr)
-                # logging.info("delay sent success")
-            except (OSError, cls.sock.error) as e:
-                logging.info("delay sent error", e)
-                return e.errno
-            time.sleep(1)
+        try:
+            delay_msg = 'delay:' + cls.client_id
+            cls.sock.sendto(delay_msg.encode('utf-8'), cls.addr)
+            # logging.info("delay sent success")
+        except (OSError, cls.sock.error) as e:
+            logging.info("delay sent error", e)
+            return e.errno
+        # time.sleep(1)
 
     @classmethod
     def receive_task(cls):
@@ -95,13 +89,13 @@ class Client:
 
     @classmethod
     def compute_task(cls):
-        while len(cls.assigned_task[tag]):
+        while len(cls.assigned_task):
             start_time = time.perf_counter()
             result = ActuatorImpl.run_actuator('compute_task_r')
             end_time = time.perf_counter()
             time_taken = round(end_time - start_time, 2)
             result_msg = 'result :' + str(result) + ':' + cls.client_id + ':' + str(
-                cls.assigned_task[tag][0]) + ':' + str(
+                cls.assigned_task[0]) + ':' + str(
                 time_taken)
             logging.info(result_msg)
             try:
@@ -111,7 +105,7 @@ class Client:
                 logging.info("result sent error:", e)
                 return e.errno
 
-            cls.assigned_task[tag].pop(0)
+            cls.assigned_task.pop(0)
 
         cls.compute_flag = False
         logging.info('all task completed')
