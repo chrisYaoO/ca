@@ -243,5 +243,5 @@ if __name__ == '__main__':
     # docker build -t ca .     构建镜像
     # 运行server
     # docker-compose up 启动容器，启动配置在docker-compsoe.yml中
-    # Server.server(ca=True)
-    Server.utilization_efficiency()
+    Server.server(ca=True)
+    # Server.utilization_efficiency()
