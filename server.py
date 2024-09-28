@@ -84,15 +84,16 @@ class Server:
         else:
             cpu_thread = threading.Thread(target=cls.cpu_change)
             cpu_thread.start()
-        data_process_thread.join()
-        print('End')
-        return 0
+        # data_process_thread.join()
+        # print('End')
+        # return 0
 
     @classmethod
     def msg_process(cls):
         while True:
             data, addr = cls.sock.recvfrom(1024)
             data = data.decode('utf-8')
+            # data=str(data)
             # print(data)
 
             if data.startswith('delay'):
@@ -106,13 +107,13 @@ class Server:
                 logging.info(data)
                 client_id = data.split(':')[-1].rstrip()
                 tag = get_container_tag_by_id(client_id)
-                print(tag)
                 cls.num_device += 1
                 logging.info(f'sending task to {client_id}, contianer {tag}')
                 cls.send_compute_task(addr, tag)
-                if cls.num_device == len(device_config):
-                    monitor_thread = threading.Thread(target=cls.container_monitor())
-                    monitor_thread.start()
+                # if cls.num_device == len(device_config):
+                #     monitor_thread = threading.Thread(target=cls.container_monitor)
+                #     print('monitor start')
+                #     monitor_thread.start()
 
             elif data.startswith('result'):
                 logging.info(data)
@@ -121,7 +122,7 @@ class Server:
                 client_id = data[2].rstrip()
                 time_taken = data[-1]
                 cls.num_task_finished += 1
-                print(cls.num_task_finished)
+                print('num task finished:', cls.num_task_finished)
                 result_info = result + ':' + time_taken
                 DeviceServiceImpl.write_result_to_cache(client_id, result_info)
                 logging.info(f'result saved: {result_info}', )
@@ -134,10 +135,23 @@ class Server:
     def container_monitor(cls):
         while True:
             if cls.num_device > 0 and cls.num_task_finished < cls.num_task:
+                client_ids = get_all_container_ids()
+                # print(client_ids)
+                for client_id in client_ids:
+                    cls.update_container_info_to_cache(client_id)
+                break
+
+        time.sleep(1)
+
+        while True:
+            if cls.num_device > 0 and cls.num_task_finished < cls.num_task:
                 client_ids = DeviceServiceImpl.return_device_list()
+                # print(client_ids)
                 for client_id in client_ids:
                     cls.update_container_info_to_cache(client_id)
             time.sleep(1)
+            if cls.num_task_finished == cls.num_task:
+                return 0
 
     @classmethod
     def update_container_info_to_cache(cls, client_id):
@@ -145,9 +159,11 @@ class Server:
             device_infos = DeviceMonitor.get_container_info_id(client_id)
             # print(device_infos)
             device_info = next(iter(device_infos.values()))
-            tag=next(iter(device_infos.keys()))
-            device_info['Cpu_new'] = cls.cpu_new[tag]
-            # print(device_info)
+            tag = next(iter(device_infos.keys()))
+            # print('tag:', int(tag))
+            # print('device_info:', device_info)
+            device_info['Cpu_new'] = cls.cpu_new[str(tag)]
+            print(device_info)
             DeviceServiceImpl.write_device_to_cache(device_info)
         except Exception as e:
             print("Error updating container info and cache:", e)
@@ -190,8 +206,8 @@ class Server:
     # 模拟cpu资源减少的情况，当没有动态调度时，只能减少cpu使用资源，无法扩张
     @classmethod
     def cpu_change(cls):
-        device_infos = DeviceMonitor.get_container_info_all()
         while cls.num_task_finished < cls.num_task:
+            device_infos = DeviceMonitor.get_container_info_all()
             for tag, device_info in device_infos.items():
                 init_cpu = device_config[tag]['num_cpu']
                 num_cpu = device_info['Cpu_limit']
@@ -199,9 +215,9 @@ class Server:
                 if cls.cpu_new[tag] < num_cpu:
                     logging.info(f'update device {tag} from {num_cpu} to {cls.cpu_new[tag]}')
                     cls.update_container_config(device_info['device_no'], cls.cpu_new[tag])
-                    # device_info['Cpu_limit'] = cls.cpu_new
+                    device_info['Cpu_limit'] = cls.cpu_new
                     # DeviceServiceImpl.write_device_to_cache(device_info)
-            time.sleep(3)
+            time.sleep(5)
 
     # 动态调度算法，能够扩张和伸缩cpu
     @classmethod
@@ -211,7 +227,7 @@ class Server:
             while cls.num_task_finished < cls.num_task:
                 for tag, device_info in device_infos.items():
                     num_cpu = device_info['Cpu_limit']
-                    cpu_new = generate_truncated_normal(num_cpu, 1, num_cpu - 1, num_cpu + 1)
+                    cpu_new = generate_truncated_normal(num_cpu, 1, num_cpu - 1.5, num_cpu + 1.5)
                     # if cpu_new < num_cpu:
                     logging.info(f'update device {tag}')
                     cls.update_container_config(device_info['device_no'], cpu_new)
@@ -253,7 +269,7 @@ class Server:
                 # print(json.loads(history))
                 history = json.loads(history)
                 # cpu_total += history['Cpu_limit']
-                cpu_total +=history['Cpu_new']
+                cpu_total += history['Cpu_new']
                 cpu_used += history['Cpu_limit'] * history['Cpu_perc'] / 100
             sum_cpu_used += cpu_used
             sum_cpu += cpu_total

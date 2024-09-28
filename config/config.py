@@ -7,4 +7,4 @@ device_config = {'1': {'num_cpu': 4},
                  # '3': {'num_cpu': 1 / 4},
                  # '4': {'num_cpu': 1 / 5}
                  }
-NUM_TASK=2
+NUM_TASK = 2

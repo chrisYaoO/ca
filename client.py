@@ -46,20 +46,21 @@ class Client:
         cls.receive_task()
         # 计算任务，回传结果
         monitor_thread = threading.Thread(target=cls.monitor)
-        # monitor_thread.start()
+        monitor_thread.start()
         compute_thread = threading.Thread(target=cls.compute_task)
         compute_thread.start()
 
     @classmethod
     def monitor(cls):
-        try:
-            delay_msg = 'delay:' + cls.client_id
-            cls.sock.sendto(delay_msg.encode('utf-8'), cls.addr)
-            # logging.info("delay sent success")
-        except (OSError, cls.sock.error) as e:
-            logging.info("delay sent error", e)
-            return e.errno
-        # time.sleep(1)
+        while True:
+            try:
+                delay_msg = 'delay:' + cls.client_id
+                cls.sock.sendto(delay_msg.encode('utf-8'), cls.addr)
+                # logging.info("delay sent success")
+            except (OSError, cls.sock.error) as e:
+                logging.info("delay sent error", e)
+                return e.errno
+            time.sleep(1)
 
     @classmethod
     def receive_task(cls):
