@@ -51,40 +51,12 @@ class cnn(nn.Module):
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-        num_epochs = 10
-        start_time = time.perf_counter()
-        print('start training')
-        for epoch in range(num_epochs):
-            running_loss = 0.0
-            with tqdm(enumerate(trainloader, 0), total=len(trainloader),
-                      desc=f'Epoch {epoch + 1}/{num_epochs}') as pbar:
-                for i, data in pbar:
-                    inputs, labels = data
-                    optimizer.zero_grad()
-
-                    outputs = model(inputs)
-                    loss = criterion(outputs, labels)
-                    loss.backward()
-                    optimizer.step()
-
-                    running_loss += loss.item()
-                    if i % 100 == 99:  # 每100个批次打印一次损失
-                        print(
-                            f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(trainloader)}], Loss: {running_loss / 100:.4f}')
-                        running_loss = 0.0
-
-            elapsed_time = time.time() - start_time
-            if elapsed_time > self.scale:  # 如果训练时间超过1分钟，提前停止
-                print("Training stopped early due to time limit.")
-                break
-
-        print('Finished Training')
-        # print(time.perf_counter() - start_time)
+        model.load_state_dict(torch.load('model.pth'))
 
         correct = 0
         total = 0
         model.eval()
-
+        print('start inference')
         with torch.no_grad():
             for data in tqdm(testloader, desc="Progress"):
                 images, labels = data
@@ -93,6 +65,6 @@ class cnn(nn.Module):
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
+        # 最终计算准确率
         accuracy = 100 * correct / total
-        print(f'Accuracy: {accuracy:.2f}%')
-        return accuracy
+        print(f'Accuracy: {accuracy}%')

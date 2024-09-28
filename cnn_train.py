@@ -1,4 +1,4 @@
-__all__ = ['cnn']
+__all__ = ['cnn_train']
 
 import torch
 import torch.nn as nn
@@ -79,20 +79,7 @@ class cnn(nn.Module):
                 break
 
         print('Finished Training')
-        # print(time.perf_counter() - start_time)
+        torch.save(model.state_dict(), 'model.pth')
+        print('model saved')
 
-        correct = 0
-        total = 0
-        model.eval()
 
-        with torch.no_grad():
-            for data in tqdm(testloader, desc="Progress"):
-                images, labels = data
-                outputs = model(images)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-
-        accuracy = 100 * correct / total
-        print(f'Accuracy: {accuracy:.2f}%')
-        return accuracy

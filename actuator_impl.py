@@ -25,4 +25,4 @@ class ActuatorImpl:
 
 
 if __name__ == '__main__':
-    accuracy=ActuatorImpl.run_actuator('cnn')
+    accuracy=ActuatorImpl.run_actuator('cnn_inference')

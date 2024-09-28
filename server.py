@@ -163,7 +163,7 @@ class Server:
             # print('tag:', int(tag))
             # print('device_info:', device_info)
             device_info['Cpu_new'] = cls.cpu_new[str(tag)]
-            print(device_info)
+            # print(device_info)
             DeviceServiceImpl.write_device_to_cache(device_info)
         except Exception as e:
             print("Error updating container info and cache:", e)
@@ -215,25 +215,23 @@ class Server:
                 if cls.cpu_new[tag] < num_cpu:
                     logging.info(f'update device {tag} from {num_cpu} to {cls.cpu_new[tag]}')
                     cls.update_container_config(device_info['device_no'], cls.cpu_new[tag])
-                    device_info['Cpu_limit'] = cls.cpu_new
+                    # device_info['Cpu_limit'] = cls.cpu_new
                     # DeviceServiceImpl.write_device_to_cache(device_info)
             time.sleep(5)
 
     # 动态调度算法，能够扩张和伸缩cpu
     @classmethod
     def cpu_change_ca(cls):
-        while cls.num_device == 4:
+        while cls.num_task_finished < cls.num_task:
             device_infos = DeviceMonitor.get_container_info_all()
-            while cls.num_task_finished < cls.num_task:
-                for tag, device_info in device_infos.items():
-                    num_cpu = device_info['Cpu_limit']
-                    cpu_new = generate_truncated_normal(num_cpu, 1, num_cpu - 1.5, num_cpu + 1.5)
-                    # if cpu_new < num_cpu:
-                    logging.info(f'update device {tag}')
-                    cls.update_container_config(device_info['device_no'], cpu_new)
-                    device_infos[tag]['Cpu_limit'] = cpu_new
-                time.sleep(3)
-                DeviceServiceImpl.write_device_to_cache(device_infos)
+            for tag, device_info in device_infos.items():
+                num_cpu = device_info['Cpu_limit']
+                cls.cpu_new[tag] = generate_truncated_normal(num_cpu, 1, num_cpu - 1, num_cpu + 1)
+                # if cpu_new < num_cpu:
+                logging.info(f'update device {tag} from {num_cpu} to {cls.cpu_new[tag]}')
+                cls.update_container_config(device_info['device_no'], cls.cpu_new[tag])
+                # device_infos[tag]['Cpu_limit'] = cpu_new
+            time.sleep(3)
 
     @classmethod
     def avg_delay(cls):
@@ -252,7 +250,8 @@ class Server:
             avg_delay[client_id] = sum(time_taken) / len(time_taken)
         # 平均任务延迟
         print(result_list)
-        logging.info(avg_delay)
+        all = avg_delay.values()
+        logging.info(sum(all) / len(all))
 
     @classmethod
     def utilization_efficiency(cls):
