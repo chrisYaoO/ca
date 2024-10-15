@@ -8,7 +8,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4'
+          cpus: '5'
           memory: 1G
     stdin_open: true
     tty: true
@@ -24,16 +24,16 @@ services:
     stdin_open: true
     tty: true
 
-#  client-3:
-#    image: ca
-#    shm_size: 0g
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: '2'
-#          memory: 1G
-#    stdin_open: true
-#    tty: true
+  client-3:
+    image: ca
+    shm_size: 0g
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: 1G
+    stdin_open: true
+    tty: true
 #
 #  client-4:
 #    image: ca

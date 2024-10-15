@@ -59,7 +59,7 @@ class Server:
     num_task_finished = 0
     num_device = 0
     cpu_new = {}
-    assigned_task = Static.base_assign(num_task, device_config)
+    assigned_task = Static.min_min(num_task, device_config)
     print(assigned_task)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # 创建socket对象
@@ -178,7 +178,7 @@ class Server:
             print("assignment sent error", e)
             return e.errno
 
-        with open('cnn.py', 'rb') as file:
+        with open('cnn_inference.py', 'rb') as file:
             file_data = file.read()
         chunks = [file_data[i:i + CHUNK_SIZE] for i in range(0, len(file_data), CHUNK_SIZE)]
         for chunk in chunks:
@@ -225,13 +225,14 @@ class Server:
         while cls.num_task_finished < cls.num_task:
             device_infos = DeviceMonitor.get_container_info_all()
             for tag, device_info in device_infos.items():
+                init_cpu = device_config[tag]['num_cpu']
                 num_cpu = device_info['Cpu_limit']
-                cls.cpu_new[tag] = generate_truncated_normal(num_cpu, 1, num_cpu - 1, num_cpu + 1)
+                cls.cpu_new[tag] = generate_truncated_normal(init_cpu, 1, init_cpu - 1, init_cpu + 1)
                 # if cpu_new < num_cpu:
                 logging.info(f'update device {tag} from {num_cpu} to {cls.cpu_new[tag]}')
                 cls.update_container_config(device_info['device_no'], cls.cpu_new[tag])
                 # device_infos[tag]['Cpu_limit'] = cpu_new
-            time.sleep(3)
+            time.sleep(5)
 
     @classmethod
     def avg_delay(cls):
@@ -283,5 +284,5 @@ if __name__ == '__main__':
     # docker build -t ca .     构建镜像
     # 运行server
     # docker-compose up 启动容器，启动配置在docker-compsoe.yml中
-    Server.server(ca=False)
+    Server.server(ca=True)
     # Server.utilization_efficiency()
